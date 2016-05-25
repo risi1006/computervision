@@ -1,0 +1,4 @@
+1. Terminal öffnen
+2. cd computerVisionCam
+3. cd build
+4. ./computerVisionCam ../data/visionary_faces.xml ../data/model.yml

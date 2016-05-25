@@ -1,0 +1,3 @@
+/home/computervision/computerVisionCam/build/CMakeFiles/edit_cache.dir
+/home/computervision/computerVisionCam/build/CMakeFiles/rebuild_cache.dir
+/home/computervision/computerVisionCam/build/CMakeFiles/computerVisionCam.dir
