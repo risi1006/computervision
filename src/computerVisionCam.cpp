@@ -7,50 +7,64 @@
  
 using namespace std;
  
-void detectFace(cv::Mat &frame,
-        cv::CascadeClassifier &face_cascade,
-        vector<cv::Rect> &faces,
-        cv::Ptr<cv::face::FaceRecognizer> &model,
-        int &pos_x,
-        int &pos_y,
-        string &text) {
-  cv::Mat grayscale;
+void detectFace(cv::Mat &colorFrame,
+        cv::CascadeClassifier &classifier,
+        vector<cv::Rect> &facesRects,
+        cv::Ptr<cv::face::FaceRecognizer> &lbphModel,
+        int &facePositionX,
+        int &facePositionY,
+        string &displayText) {
+
+  cv::Mat grayscaleFrame;
  
   // Konvertieren des Bildes: Graustufen, Normalisierung der Helligkeit und Erhöhung des Kontrastes
-  cv::cvtColor(frame, grayscale, cv::COLOR_BGR2GRAY);
-  cv::equalizeHist(grayscale, grayscale);
- 
-  face_cascade.detectMultiScale(grayscale, faces, 1.6, 3, 0|CV_HAAR_SCALE_IMAGE, cv::Size(80, 80), cv::Size(200, 200));
- 
-  for (size_t i = 0; i < faces.size(); i++) { cv::Point center( faces[i].x + faces[i].width*0.5, faces[i].y + faces[i].height*0.5 ); cv::ellipse( frame, center, cv::Size( faces[i].width*0.5, faces[i].height*0.5), 0, 0, 360, cv::Scalar( 255, 255, 255 ), 2, 8, 0 ); 
+  cv::cvtColor(colorFrame, grayscaleFrame, cv::COLOR_BGR2GRAY);
+  cv::equalizeHist(grayscaleFrame, grayscaleFrame);
 
+  // Alle Gesichter im Frame mittels Classifier erkennen und in Vector facesRects ablegen
+  classifier.detectMultiScale(grayscaleFrame, facesRects, 1.6, 3, 0|CV_HAAR_SCALE_IMAGE, cv::Size(80, 80), cv::Size(200, 200));
 
-cv::Mat face_i = cv::Mat(frame, faces[i]); 
- 
-cv::cvtColor(face_i, face_i, cv::COLOR_BGR2GRAY); 
-cv::resize(face_i, face_i, cv::Size(100, 100), 0, 0, CV_INTER_NN); 
+  // Alle erkannten Gesichter werden mit einer Ellipse markiert
+  for (size_t i = 0; i < facesRects.size(); i++) {
+    cv::Point faceMid( facesRects[i].x + facesRects[i].width*0.5, facesRects[i].y + facesRects[i].height*0.5 );
+    cv::ellipse( colorFrame, faceMid, cv::Size( facesRects[i].width*0.5, facesRects[i].height*0.5), 0, 0, 360, cv::Scalar( 255, 255, 255 ), 2, 8, 0 );
 
-double predicted_confidence = 0.0; int prediction = -1; 
-model->predict(face_i,prediction,predicted_confidence);
-    cout << "Prediction " << prediction << " Confidence " << predicted_confidence << endl;
-    if (prediction == 0 && predicted_confidence < 110.0) {
-      text = "Johannes";
-      pos_x = max(faces[i].tl().x - 10, 0);
-      pos_y = max(faces[i].tl().y - 10, 0);
-      cv::putText( frame, text, cv::Point(pos_x, pos_y), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
-    } else if (prediction == 1 && predicted_confidence < 110.0) {
-      text = "Alex";
-      pos_x = max(faces[i].tl().x - 10, 0);
-      pos_y = max(faces[i].tl().y - 10, 0);
-      cv::putText( frame, text, cv::Point(pos_x, pos_y), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
-    } else if (prediction == 2 && predicted_confidence < 110.0) {
-      text = "Christian";
-      pos_x = max(faces[i].tl().x - 10, 0);
-      pos_y = max(faces[i].tl().y - 10, 0);
-      cv::putText( frame, text, cv::Point(pos_x, pos_y), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
-    } else {
-      text = "Face not recognized... Sorry :(";
+  // Erkanntes Gesicht einzeln holen und vergroessern
+  cv::Mat detectedFace = cv::Mat(colorFrame, facesRects[i]);
+  cv::cvtColor(detectedFace, detectedFace, cv::COLOR_BGR2GRAY);
+  cv::resize(detectedFace, detectedFace, cv::Size(100, 100), 0, 0, CV_INTER_NN);
+
+  // Genauigkeit der Erkennung
+  double confidence = 0.0;
+
+  // Erkanntes Gesicht gemäß Trainings-Labels (0 = Johannes, 1 = Alex, 2 = Christian, 3 = unbekannt)
+  int prediction = -1;
+
+  // Gesicht identifizieren
+  model->predict(detectedFace, prediction, confidence);
+
+    if (prediction == 0 && confidence < 110.0) {
+      displayText = "Johannes";
     }
+
+    else if (prediction == 1 && confidence < 110.0) {
+      displayText = "Alex";
+    }
+
+    else if (prediction == 2 && confidence < 110.0) {
+      displayText = "Christian";
+    }
+
+    else {
+      displayText = "Unbekannt";
+    }
+
+    cout << "Erkanntes Gesicht: " << displayText << " Genauigkeit: " << confidence << endl;
+
+    // Text an Gesichtsposition im Frame setzen
+    facePositionX = max(facesRects[i].tl().x - 10, 0);
+    facePositionY = max(facesRects[i].tl().y - 10, 0);
+    cv::putText( colorFrame, displayText, cv::Point(facePositionX, facePositionY), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
   }
 }
  
@@ -58,89 +72,88 @@ model->predict(face_i,prediction,predicted_confidence);
 int main(int argc, char **argv) {
 
   // Kamera
-  raspicam::RaspiCam_Cv Camera;
+  raspicam::RaspiCam_Cv camera;
 
   // Bild
-  cv::Mat frame;
+  cv::Mat colorFrame;
 
   // Classifier
-  cv::CascadeClassifier face_cascade;
-  cv::Ptr<cv::face::FaceRecognizer> model = cv::face::createLBPHFaceRecognizer();
+  cv::CascadeClassifier classifier;
+  cv::Ptr<cv::face::FaceRecognizer> lbphModel = cv::face::createLBPHFaceRecognizer();
 
   // Vektor mit Rechtecken für jedes im Bild erkannte Gesicht
-  vector<cv::Rect> faces;
+  vector<cv::Rect> facesRects;
 
   // Text der in der GUI dargestellt werden soll
-  string text = "";
+  string displayText = "";
 
   // X-Position des erkannten Gesichtes
-  int pos_x = 0;
+  int facePositionX = 0;
 
   // Y-Position des erkannten Gesichtes
-  int pos_y = 0;
-
-
-  size_t i = 0;
+  int facePositionY = 0;
  
   if (argc != 3) {
-    cerr << "Usage: " << argv[0] << " <Detection File> <Recognition File>" << endl;
+    cerr << "Ungueltige oder fehlende Argumente..." << endl;
     return -1;
   }
- 
-  string classifier_file = argv[1];
-  string face_model = argv[2];
- 
-  cout << "Loading face cascade.." << endl;
-  if (!face_cascade.load(classifier_file)) {
-    cerr << "Error loading face cascade!" << endl;
+
+  // Übergebene Argumente
+  string fileClassifier = argv[1];
+  string fileLbphModel = argv[2];
+
+  if (!classifier.load(fileClassifier)) {
+    cerr << "Classifier konnte nicht geladen werden..." << endl;
     return -1;
   }
- 
-  cout << "Loading face recognition model.." << endl; model->load(face_model);
-   
+
+  model->load(fileLbphModel);
+
+  // Kamera-Einstellungen festlegen
   Camera.set(CV_CAP_PROP_FORMAT, CV_8UC3);
   Camera.set(CV_CAP_PROP_FRAME_WIDTH, 640);
   Camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
- 
-  cout << "Opening camera..." << endl;
-  if (!Camera.open()) {
-    cerr << "Error opening camera!" << endl;
+
+  if (!camera.open()) {
+    cerr << "Kamera konnte nicht gestartet werden..." << endl;
     return -1;
   }
-   
-  cv::namedWindow("Display Window", cv::WINDOW_AUTOSIZE);
+
+  // Fenster erzeugen
+  cv::namedWindow("ComputerVisionCam", cv::WINDOW_AUTOSIZE);
  
   for (;;i++) {
     Camera.grab();
-    Camera.retrieve(frame);
+    Camera.retrieve(colorFrame); // Kamera-Bilddaten holen
  
     if (i % 6 == 0) {
-      detectFace(frame,
-         face_cascade,
-         faces,
-         model,
-         pos_x,
-         pos_y,
-         text);
+
+      // Aufruf der Gesichtserkennung
+      detectFace(colorFrame,
+         classifier,
+         facesRects,
+         lbphModel,
+         facePositionX,
+         facePositionY,
+         displayText);
     } 
 
     else {
-      for (size_t i = 0; i < faces.size(); i++) { 
-		cv::Point center( faces[i].x + faces[i].width*0.5, faces[i].y + faces[i].height*0.5 );
-		cv::ellipse( frame, center, cv::Size( faces[i].width*0.5, faces[i].height*0.5), 0, 0, 360, cv::Scalar( 255, 255, 255 ), 2, 8, 0 ); 
-		cv::putText( frame, text, cv::Point(pos_x, pos_y), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
+      for (size_t i = 0; i < facesRects.size(); i++) {
+		cv::Point faceMid( facesRects[i].x + facesRects[i].width*0.5, facesRects[i].y + facesRects[i].height*0.5 );
+		cv::ellipse( colorFrame, faceMid, cv::Size( facesRects[i].width*0.5, facesRects[i].height*0.5), 0, 0, 360, cv::Scalar( 255, 255, 255 ), 2, 8, 0 );
+		cv::putText( colorFrame, displayText, cv::Point(facePositionX, facePositionY), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(255,255,255), 1);
 	  }
     } 
 
-  cv::imshow("Display Window", frame); if (cv::waitKey(1) > 0) {
-	break;
+  // Kamera-Bild im Fenster aktualisieren
+  cv::imshow("ComputerVisionCam", colorFrame);
+    if (cv::waitKey(1) > 0) {
+	  break;
     }
   }
    
-  cout << "Stopping camera.." << endl;
+  cout << "Kamera-Aufnahme wird beendet..." << endl;
   Camera.release();
   return 0;
 }
-
-//Camera.set(CV_CAP_PROP_FRAME_WIDTH, 640);
-//Camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
