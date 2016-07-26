@@ -29,19 +29,19 @@ void detectFace(cv::Mat &colorFrame,
     cv::Point faceMid( facesRects[i].x + facesRects[i].width*0.5, facesRects[i].y + facesRects[i].height*0.5 );
     cv::ellipse( colorFrame, faceMid, cv::Size( facesRects[i].width*0.5, facesRects[i].height*0.5), 0, 0, 360, cv::Scalar( 255, 255, 255 ), 2, 8, 0 );
 
-  // Erkanntes Gesicht einzeln holen und vergroessern
-  cv::Mat detectedFace = cv::Mat(colorFrame, facesRects[i]);
-  cv::cvtColor(detectedFace, detectedFace, cv::COLOR_BGR2GRAY);
-  cv::resize(detectedFace, detectedFace, cv::Size(100, 100), 0, 0, CV_INTER_NN);
+    // Erkanntes Gesicht einzeln holen und vergroessern
+    cv::Mat detectedFace = cv::Mat(colorFrame, facesRects[i]);
+    cv::cvtColor(detectedFace, detectedFace, cv::COLOR_BGR2GRAY);
+    cv::resize(detectedFace, detectedFace, cv::Size(100, 100), 0, 0, CV_INTER_NN);
 
-  // Genauigkeit der Erkennung
-  double confidence = 0.0;
+    // Genauigkeit der Erkennung
+    double confidence = 0.0;
 
-  // Erkanntes Gesicht gemäß Trainings-Labels (0 = Johannes, 1 = Alex, 2 = Christian, 3 = unbekannt)
-  int prediction = -1;
+    // Erkanntes Gesicht gemäß Trainings-Labels (0 = Johannes, 1 = Alex, 2 = Christian, 3 = unbekannt)
+    int prediction = -1;
 
-  // Gesicht identifizieren
-  model->predict(detectedFace, prediction, confidence);
+    // Gesicht identifizieren
+    model->predict(detectedFace, prediction, confidence);
 
     if (prediction == 0 && confidence < 110.0) {
       displayText = "Johannes";
@@ -71,14 +71,16 @@ void detectFace(cv::Mat &colorFrame,
  
 int main(int argc, char **argv) {
 
-  // Kamera
+  // Kamera-Objekt
   raspicam::RaspiCam_Cv camera;
 
-  // Bild
+  // Ausgabe-Frame
   cv::Mat colorFrame;
 
-  // Classifier
+  // Classifier-Objekt
   cv::CascadeClassifier classifier;
+
+  // LBPH-Modell
   cv::Ptr<cv::face::FaceRecognizer> lbphModel = cv::face::createLBPHFaceRecognizer();
 
   // Vektor mit Rechtecken für jedes im Bild erkannte Gesicht
@@ -92,13 +94,14 @@ int main(int argc, char **argv) {
 
   // Y-Position des erkannten Gesichtes
   int facePositionY = 0;
- 
+
+  // Prüfung auf richtige Anzahl der übergebenen Argumente
   if (argc != 3) {
     cerr << "Ungueltige oder fehlende Argumente..." << endl;
     return -1;
   }
 
-  // Übergebene Argumente
+  // Übergebene Argumente (1 = Classifier, 2 = LBPH-Modell)
   string fileClassifier = argv[1];
   string fileLbphModel = argv[2];
 
@@ -107,11 +110,12 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  model->load(fileLbphModel);
+  // Laden des Modells
+  lbphModel->load(fileLbphModel);
 
   // Kamera-Einstellungen festlegen
-  Camera.set(CV_CAP_PROP_FORMAT, CV_8UC3);
-  Camera.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+  Camera.set(CV_CAP_PROP_FORMAT, CV_8UC3); // Farb-Bild
+  Camera.set(CV_CAP_PROP_FRAME_WIDTH, 640); // Reduzierung des Kamera-Bildes auf 640x480 zur Performance-Optimierung
   Camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
 
   if (!camera.open()) {
