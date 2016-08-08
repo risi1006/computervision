@@ -41,7 +41,7 @@ void detectFace(cv::Mat &colorFrame,
     int prediction = -1;
 
     // Gesicht identifizieren
-    model->predict(detectedFace, prediction, confidence);
+      lbphModel->predict(detectedFace, prediction, confidence);
 
     if (prediction == 0 && confidence < 110.0) {
       displayText = "Johannes";
@@ -95,7 +95,10 @@ int main(int argc, char **argv) {
   // Y-Position des erkannten Gesichtes
   int facePositionY = 0;
 
-  // Prüfung auf richtige Anzahl der übergebenen Argumente
+  size_t i = 0; // Schleifenzaehler
+
+
+    // Prüfung auf richtige Anzahl der übergebenen Argumente
   if (argc != 3) {
     cerr << "Ungueltige oder fehlende Argumente..." << endl;
     return -1;
@@ -114,9 +117,9 @@ int main(int argc, char **argv) {
   lbphModel->load(fileLbphModel);
 
   // Kamera-Einstellungen festlegen
-  Camera.set(CV_CAP_PROP_FORMAT, CV_8UC3); // Farb-Bild
-  Camera.set(CV_CAP_PROP_FRAME_WIDTH, 640); // Reduzierung des Kamera-Bildes auf 640x480 zur Performance-Optimierung
-  Camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+  camera.set(CV_CAP_PROP_FORMAT, CV_8UC3); // Farb-Bild
+  camera.set(CV_CAP_PROP_FRAME_WIDTH, 640); // Reduzierung des Kamera-Bildes auf 640x480 zur Performance-Optimierung
+  camera.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
 
   if (!camera.open()) {
     cerr << "Kamera konnte nicht gestartet werden..." << endl;
@@ -127,8 +130,8 @@ int main(int argc, char **argv) {
   cv::namedWindow("ComputerVisionCam", cv::WINDOW_AUTOSIZE);
  
   for (;;i++) {
-    Camera.grab();
-    Camera.retrieve(colorFrame); // Kamera-Bilddaten holen
+    camera.grab();
+    camera.retrieve(colorFrame); // Kamera-Bilddaten holen
  
     if (i % 6 == 0) {
 
@@ -158,6 +161,6 @@ int main(int argc, char **argv) {
   }
    
   cout << "Kamera-Aufnahme wird beendet..." << endl;
-  Camera.release();
+  camera.release();
   return 0;
 }
